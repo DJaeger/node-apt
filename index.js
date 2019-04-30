@@ -34,7 +34,7 @@ var show = module.exports.show = function(name, callback) {
  */
 var update = module.exports.update = function(callback) {
     var emitter = new events.EventEmitter();
-    var child = exec(util.format('%s update', path('apt-get')), function(err, stdout, stderr) {
+    var child = exec('sudo ' + util.format('%s update', path('apt-get')), function(err, stdout, stderr) {
         if (err) {
             return callback(err);
         }
@@ -78,7 +78,7 @@ var install = module.exports.install = function(/* name, [version,] [options,] c
     options = options || {};
     var forceConf = (options.confnew) ? 'new' : 'old';
     var emitter = new events.EventEmitter();
-    var child = exec(util.format('%s install -y -o Dpkg::Options::="--force-conf%s" %s', path('apt-get'), forceConf, name), function(err, stdout, stderr) {
+    var child = exec('sudo ' + util.format('%s install -y -o Dpkg::Options::="--force-conf%s" %s', path('apt-get'), forceConf, name), function(err, stdout, stderr) {
         if (err) {
             return callback(err);
         }
@@ -102,7 +102,7 @@ var install = module.exports.install = function(/* name, [version,] [options,] c
  */
 var uninstall = module.exports.uninstall = function(name, callback) {
     var emitter = new events.EventEmitter();
-    var child = exec(util.format('%s remove -y %s', path('apt-get'), name), callback);
+    var child = exec('sudo ' + util.format('%s remove -y %s', path('apt-get'), name), callback);
 
     child.stdout.on('data', function(data) {
         emitter.emit('stdout', data);

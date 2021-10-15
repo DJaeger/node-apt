@@ -17,3 +17,11 @@ Uses `apt-get install -y` to install a package
 ### Uninstall
 
 Uses `apt-get remove -y` to remove a package
+
+### Autoremove
+
+Uses `apt-get autoremove -y` to remove obsolete packages
+
+### Upgrade
+
+Uses `apt-get upgrade -y` to upgrade packages

@@ -1,8 +1,7 @@
-
-var _ = require('underscore');
-var events = require('events');
-var exec = require('child_process').exec;
-var util = require('util');
+var _      = require('underscore'),
+    events = require('events'),
+    exec   = require('child_process').exec,
+    util   = require('util');
 
 var _path = {};
 
@@ -17,7 +16,11 @@ var path = module.exports.path = function(alias, path) {
 };
 
 /**
- * Show the currently installed version of the module using dpkg -s
+ * Show the currently installed version of the package using dpkg -s
+ *
+ * @param   {String}    name                The name of the package to show info about (e.g., redis-server)
+ * @param   {Function}  callback            Invoked when fetching info is complete
+ * @param   {Error}     callback.err        An error that occurred, if any
  */
 var show = module.exports.show = function(name, callback) {
     exec(util.format('%s -s %s', path('dpkg'), name), function(err, stdout, stderr) {
@@ -31,6 +34,9 @@ var show = module.exports.show = function(name, callback) {
 
 /**
  * Update the apt cache using apt-get update
+ *
+ * @param   {Function}  callback            Invoked when update is complete
+ * @param   {Error}     callback.err        An error that occurred, if any
  */
 var update = module.exports.update = function(callback) {
     var emitter = new events.EventEmitter();
@@ -38,7 +44,6 @@ var update = module.exports.update = function(callback) {
         if (err) {
             return callback(err);
         }
-
         return callback();
     });
 
@@ -54,15 +59,15 @@ var update = module.exports.update = function(callback) {
 };
 
 /**
- * Install the module with the given name, optionally with the given version
+ * Install the package with the given name, optionally with the given version
  *
- * @param   {String}    name                The name of the module to install (e.g., redis-server)
- * @param   {String}    [version]           The version of the module to install
+ * @param   {String}    name                The name of the package to install (e.g., redis-server)
+ * @param   {String}    [version]           The version of the package to install
  * @param   {Object}    [options]           Invokation arguments
- * @param   {Boolean}   [options.confnew]   If `true` and a module is being upgraded, existing configurations will be overwritten. Default: `false`
- * @param   {Function}  [callback]          Invoked when installation is complete
- * @param   {Error}     [callback.err]      An error that occurred, if any
- * @param   {Object}    [callback.package]  The package definition (from `show`) of the module that was installed
+ * @param   {Boolean}   [options.confnew]   If `true` and a package is being upgraded, existing configurations will be overwritten. Default: `false`
+ * @param   {Function}  callback            Invoked when installation is complete
+ * @param   {Error}     callback.err        An error that occurred, if any
+ * @param   {Object}    callback.package    The package definition (from `show`) of the package that was installed
  */
 var install = module.exports.install = function(/* name, [version,] [options,] callback */) {
     var args = Array.prototype.slice.call(arguments);
@@ -82,7 +87,6 @@ var install = module.exports.install = function(/* name, [version,] [options,] c
         if (err) {
             return callback(err);
         }
-
         return show(name, callback);
     });
 
@@ -99,10 +103,78 @@ var install = module.exports.install = function(/* name, [version,] [options,] c
 
 /**
  * Uninstall the package with the given name
+ *
+ * @param   {Function}  callback            Invoked when uninstallation is complete
+ * @param   {Error}     callback.err        An error that occurred, if any
  */
 var uninstall = module.exports.uninstall = function(name, callback) {
     var emitter = new events.EventEmitter();
-    var child = exec('sudo ' + util.format('%s remove -y %s', path('apt-get'), name), callback);
+    var child = exec('sudo ' + util.format('%s remove -y %s', path('apt-get'), name), function(err, stdout, stderr) {
+        if (err) {
+            return callback(err);
+        }
+        return callback();
+    });
+
+    child.stdout.on('data', function(data) {
+        emitter.emit('stdout', data);
+    });
+
+    child.stderr.on('data', function(data) {
+        emitter.emit('stderr', data);
+    });
+
+    return emitter;
+};
+
+/**
+ * Autoremove obsolete packages
+ *
+ * @param   {Function}  callback            Invoked when autoremove is complete
+ * @param   {Error}     callback.err        An error that occurred, if any
+ */
+var autoremove = module.exports.autoremove = function(callback) {
+    var emitter = new events.EventEmitter();
+    var child = exec('sudo ' + util.format('%s autoremove -y', path('apt-get')), function(err, stdout, stderr) {
+        if (err) {
+            return callback(err);
+        }
+        return callback();
+    });
+
+    child.stdout.on('data', function(data) {
+        emitter.emit('stdout', data);
+    });
+
+    child.stderr.on('data', function(data) {
+        emitter.emit('stderr', data);
+    });
+
+    return emitter;
+};
+
+/**
+ * Upgrade packages
+ *
+ * @param   {Object}    [options]           Invokation arguments
+ * @param   {Boolean}   [options.confnew]   If `true` existing configurations will be overwritten. Default: `false`
+ * @param   {Function}  [callback]          Invoked when upgrade is complete
+ * @param   {Error}     [callback.err]      An error that occurred, if any
+ */
+var upgrade = module.exports.upgrade = function(/* [options,] callback */) {
+    var args = Array.prototype.slice.call(arguments);
+    var options = (!_.isFunction(args[0])) ? args.shift() : null;
+    var callback = args.shift();
+
+    options = options || {};
+    var forceConf = (options.confnew) ? 'new' : 'old';
+    var emitter = new events.EventEmitter();
+    var child = exec('sudo ' + util.format('%s upgrade -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-conf%s"', path('apt-get'), forceConf), function(err, stdout, stderr) {
+        if (err) {
+            return callback(err);
+        }
+        return callback();
+    });
 
     child.stdout.on('data', function(data) {
         emitter.emit('stdout', data);
